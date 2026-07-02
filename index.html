@@ -94,10 +94,10 @@
 
 <div class="container">
     <h1>🎸 コード進行ダイアグラム表示ツール</h1>
-    <textarea id="chordInput" placeholder="コード進行を入力（例: C G/B Am C/G F C/E Dm G7）"></textarea>
+    <textarea id="chordInput" placeholder="コード進行を入力（例: C Fsus4 G Gadd9 Am Fsus2）"></textarea>
     <div class="instruction">
         ※ 各コードの間はスペースや矢印（→）などで区切ってください。<br>
-        ※ スラッシュ（/）を用いたオンコード（分数コード）にも対応しています。
+        ※ オンコード（C/Gなど）、sus4、sus2、add9などの特殊コードにも対応しました。
     </div>
     
     <div id="diagramGrid" class="diagram-grid"></div>
@@ -106,7 +106,7 @@
 <script>
 // コード定義辞書 (6弦 -> 1弦の順。x: ミュート、0: 開放、数字: フレット)
 const chordDictionary = {
-    // --- 基本コード ---
+    // --- 基本コード (Major / Minor / 7th) ---
     'C':    ['x', '3', '2', '0', '1', '0'],
     'G':    ['3', '2', '0', '0', '0', '3'],
     'Am':   ['x', '0', '2', '2', '1', '0'],
@@ -124,6 +124,27 @@ const chordDictionary = {
     'FM7':  ['x', 'x', '3', '2', '1', '0'],
     'CM7':  ['x', '3', '2', '0', '0', '0'],
 
+    // --- sus4 シリーズ (浮遊感のある響き) ---
+    'Csus4': ['x', '3', '3', '0', '1', '1'],
+    'Dsus4': ['x', 'x', '0', '2', '3', '3'],
+    'Esus4': ['0', '2', '2', '2', '0', '0'],
+    'Fsus4': ['1', '3', '3', '3', '1', '1'],
+    'Gsus4': ['3', '2', '0', '0', '1', '3'],
+    'Asus4': ['x', '0', '2', '2', '3', '0'],
+
+    // --- sus2 シリーズ (爽やかな響き) ---
+    'Csus2': ['x', '3', '0', '0', '1', '0'],
+    'Dsus2': ['x', 'x', '0', '2', '3', '0'],
+    'Fsus2': ['1', '3', '3', '0', '1', '1'],
+    'Asus2': ['x', '0', '2', '2', '0', '0'],
+
+    // --- add9 シリーズ (エモーショナルな響き) ---
+    'Cadd9': ['x', '3', '2', '0', '3', '0'],
+    'Dadd9': ['x', 'x', '0', '2', '3', '0'], // 簡易的によく使われる形
+    'Fadd9': ['1', '3', '3', '2', '1', '3'],
+    'Gadd9': ['3', '2', '0', '2', '0', '3'],
+    'Aadd9': ['x', '0', '2', '4', '2', '0'],
+
     // --- 主要なオンコード (分数コード) ---
     'C/G':  ['3', '3', '2', '0', '1', '0'],
     'C/E':  ['0', '3', '2', '0', '1', '0'],
@@ -139,32 +160,26 @@ const diagramGrid = document.getElementById('diagramGrid');
 
 chordInput.addEventListener('input', () => {
     const text = chordInput.value;
-    // スペース、タブ、改行、カンマ、矢印記号で分割し、空要素を除去
     const tokens = text.split(/[\s,➔→\->]+/).filter(t => t.trim() !== '');
     
     diagramGrid.innerHTML = '';
 
     tokens.forEach(token => {
-        // アルファベット、数字、シャープ、スラッシュのみを許可してクリーニング
         const cleanName = token.replace(/[^a-zA-Z0-9#/]/g, '');
         const frets = chordDictionary[cleanName];
 
-        // カードコンテナ作成
         const card = document.createElement('div');
         card.className = 'chord-card';
 
-        // コード名表示
         const nameDiv = document.createElement('div');
         nameDiv.className = 'chord-name';
         nameDiv.textContent = token; 
         card.appendChild(nameDiv);
 
         if (frets) {
-            // 辞書に一致したらSVGダイアグラムを生成して追加
             const svg = createChordSVG(frets);
             card.appendChild(svg);
         } else {
-            // 未登録コードの場合の表示
             const unknown = document.createElement('div');
             unknown.style.height = '120px';
             unknown.style.display = 'flex';
@@ -180,7 +195,6 @@ chordInput.addEventListener('input', () => {
     });
 });
 
-// SVGでギターのコードダイアグラムを描画する関数
 function createChordSVG(frets) {
     const svgNS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(svgNS, "svg");
@@ -188,14 +202,12 @@ function createChordSVG(frets) {
     svg.setAttribute("height", "130");
     svg.setAttribute("viewBox", "0 0 100 130");
 
-    // 配置用のパラメータ
     const startX = 15;
-    const spacingX = 14; // 弦と弦の横幅
+    const spacingX = 14; 
     const startY = 30;
-    const spacingY = 22; // フレットの縦幅
-    const fretCount = 4;  // 画面に描画するフレット数（1〜4フレット分）
+    const spacingY = 22; 
+    const fretCount = 4;  
 
-    // 1. フレット線（水平線）の描画
     for (let i = 0; i <= fretCount; i++) {
         const line = document.createElementNS(svgNS, "line");
         const y = startY + i * spacingY;
@@ -203,14 +215,11 @@ function createChordSVG(frets) {
         line.setAttribute("y1", y);
         line.setAttribute("x2", startX + 5 * spacingX);
         line.setAttribute("y2", y);
-        
-        // 0フレット（ナット）だけ太く、それ以外は細く描画
         line.setAttribute("stroke", "#495057");
         line.setAttribute("stroke-width", i === 0 ? "4" : "1");
         svg.appendChild(line);
     }
 
-    // 2. 弦（垂直線）の描画 (左から6弦、5弦……一番右が1弦)
     for (let i = 0; i < 6; i++) {
         const line = document.createElementNS(svgNS, "line");
         const x = startX + i * spacingX;
@@ -223,12 +232,10 @@ function createChordSVG(frets) {
         svg.appendChild(line);
     }
 
-    // 3. ミュート、開放弦、押弦ポジションのマーカー配置
     frets.forEach((fret, stringIndex) => {
         const x = startX + stringIndex * spacingX;
 
         if (fret === 'x' || fret === 'X') {
-            // ミュート（×印）をナットの上に描画
             const text = document.createElementNS(svgNS, "text");
             text.setAttribute("x", x);
             text.setAttribute("y", startY - 8);
@@ -239,7 +246,6 @@ function createChordSVG(frets) {
             text.textContent = "×";
             svg.appendChild(text);
         } else if (fret === '0') {
-            // 開放弦（◯印）をナットの上に描画
             const circle = document.createElementNS(svgNS, "circle");
             circle.setAttribute("cx", x);
             circle.setAttribute("cy", startY - 10);
@@ -249,7 +255,6 @@ function createChordSVG(frets) {
             circle.setAttribute("stroke-width", "1.5");
             svg.appendChild(circle);
         } else {
-            // 押さえる位置（黒丸）をフレットのマス目中央に描画
             const fretNum = parseInt(fret);
             const circle = document.createElementNS(svgNS, "circle");
             circle.setAttribute("cx", x);
