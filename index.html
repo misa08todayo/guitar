@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guitar Chord Progression Visualizer</title>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-color: #212529;
+            --primary-color: #4a90e2;
+            --border-color: #dee2e6;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 90px;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1.1rem;
+            resize: none;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            border-color: var(--primary-color);
+        }
+
+        .instruction {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-top: 5px;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .diagram-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .chord-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .chord-name {
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+            color: var(--primary-color);
+            min-height: 1.5rem;
+            word-break: break-all;
+        }
+
+        svg {
+            overflow: visible;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎸 コード進行ダイアグラム表示ツール</h1>
+    <textarea id="chordInput" placeholder="コード進行を入力（例: C G/B Am C/G F C/E Dm G7）"></textarea>
+    <div class="instruction">
+        ※ 各コードの間はスペースや矢印（→）などで区切ってください。<br>
+        ※ スラッシュ（/）を用いたオンコード（分数コード）にも対応しています。
+    </div>
+    
+    <div id="diagramGrid" class="diagram-grid"></div>
+</div>
+
+<script>
+// コード定義辞書 (6弦 -> 1弦の順。x: ミュート、0: 開放、数字: フレット)
+const chordDictionary = {
+    // --- 基本コード ---
+    'C':    ['x', '3', '2', '0', '1', '0'],
+    'G':    ['3', '2', '0', '0', '0', '3'],
+    'Am':   ['x', '0', '2', '2', '1', '0'],
+    'F':    ['1', '3', '3', '2', '1', '1'],
+    'D':    ['x', 'x', '0', '2', '3', '2'],
+    'Dm':   ['x', 'x', '0', '2', '3', '1'],
+    'E':    ['0', '2', '2', '1', '0', '0'],
+    'Em':   ['0', '2', '2', '0', '0', '0'],
+    'A':    ['x', '0', '2', '2', '2', '0'],
+    'B7':   ['x', '2', '1', '2', '0', '2'],
+    'C7':   ['x', '3', '2', '3', '1', '0'],
+    'D7':   ['x', 'x', '0', '2', '1', '2'],
+    'E7':   ['0', '2', '0', '1', '0', '0'],
+    'G7':   ['3', '2', '0', '0', '0', '1'],
+    'FM7':  ['x', 'x', '3', '2', '1', '0'],
+    'CM7':  ['x', '3', '2', '0', '0', '0'],
+
+    // --- 主要なオンコード (分数コード) ---
+    'C/G':  ['3', '3', '2', '0', '1', '0'],
+    'C/E':  ['0', '3', '2', '0', '1', '0'],
+    'G/B':  ['x', '2', '0', '0', '0', '3'],
+    'Am/G': ['3', '0', '2', '2', '1', '0'],
+    'F/E':  ['0', '3', '3', '2', '1', '1'],
+    'D/F#': ['2', '0', '0', '2', '3', '2'],
+    'Dm/C': ['x', '3', '0', '2', '3', '1']
+};
+
+const chordInput = document.getElementById('chordInput');
+const diagramGrid = document.getElementById('diagramGrid');
+
+chordInput.addEventListener('input', () => {
+    const text = chordInput.value;
+    // スペース、タブ、改行、カンマ、矢印記号で分割し、空要素を除去
+    const tokens = text.split(/[\s,➔→\->]+/).filter(t => t.trim() !== '');
+    
+    diagramGrid.innerHTML = '';
+
+    tokens.forEach(token => {
+        // アルファベット、数字、シャープ、スラッシュのみを許可してクリーニング
+        const cleanName = token.replace(/[^a-zA-Z0-9#/]/g, '');
+        const frets = chordDictionary[cleanName];
+
+        // カードコンテナ作成
+        const card = document.createElement('div');
+        card.className = 'chord-card';
+
+        // コード名表示
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'chord-name';
+        nameDiv.textContent = token; 
+        card.appendChild(nameDiv);
+
+        if (frets) {
+            // 辞書に一致したらSVGダイアグラムを生成して追加
+            const svg = createChordSVG(frets);
+            card.appendChild(svg);
+        } else {
+            // 未登録コードの場合の表示
+            const unknown = document.createElement('div');
+            unknown.style.height = '120px';
+            unknown.style.display = 'flex';
+            unknown.style.alignItems = 'center';
+            unknown.style.justifyContent = 'center';
+            unknown.style.color = '#999';
+            unknown.style.fontSize = '0.85rem';
+            unknown.textContent = '未登録';
+            card.appendChild(unknown);
+        }
+
+        diagramGrid.appendChild(card);
+    });
+});
+
+// SVGでギターのコードダイアグラムを描画する関数
+function createChordSVG(frets) {
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("width", "100");
+    svg.setAttribute("height", "130");
+    svg.setAttribute("viewBox", "0 0 100 130");
+
+    // 配置用のパラメータ
+    const startX = 15;
+    const spacingX = 14; // 弦と弦の横幅
+    const startY = 30;
+    const spacingY = 22; // フレットの縦幅
+    const fretCount = 4;  // 画面に描画するフレット数（1〜4フレット分）
+
+    // 1. フレット線（水平線）の描画
+    for (let i = 0; i <= fretCount; i++) {
+        const line = document.createElementNS(svgNS, "line");
+        const y = startY + i * spacingY;
+        line.setAttribute("x1", startX);
+        line.setAttribute("y1", y);
+        line.setAttribute("x2", startX + 5 * spacingX);
+        line.setAttribute("y2", y);
+        
+        // 0フレット（ナット）だけ太く、それ以外は細く描画
+        line.setAttribute("stroke", "#495057");
+        line.setAttribute("stroke-width", i === 0 ? "4" : "1");
+        svg.appendChild(line);
+    }
+
+    // 2. 弦（垂直線）の描画 (左から6弦、5弦……一番右が1弦)
+    for (let i = 0; i < 6; i++) {
+        const line = document.createElementNS(svgNS, "line");
+        const x = startX + i * spacingX;
+        line.setAttribute("x1", x);
+        line.setAttribute("y1", startY);
+        line.setAttribute("x2", x);
+        line.setAttribute("y2", startY + fretCount * spacingY);
+        line.setAttribute("stroke", "#a1a1a1");
+        line.setAttribute("stroke-width", "1.5");
+        svg.appendChild(line);
+    }
+
+    // 3. ミュート、開放弦、押弦ポジションのマーカー配置
+    frets.forEach((fret, stringIndex) => {
+        const x = startX + stringIndex * spacingX;
+
+        if (fret === 'x' || fret === 'X') {
+            // ミュート（×印）をナットの上に描画
+            const text = document.createElementNS(svgNS, "text");
+            text.setAttribute("x", x);
+            text.setAttribute("y", startY - 8);
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("font-size", "12");
+            text.setAttribute("font-weight", "bold");
+            text.setAttribute("fill", "#dc3545");
+            text.textContent = "×";
+            svg.appendChild(text);
+        } else if (fret === '0') {
+            // 開放弦（◯印）をナットの上に描画
+            const circle = document.createElementNS(svgNS, "circle");
+            circle.setAttribute("cx", x);
+            circle.setAttribute("cy", startY - 10);
+            circle.setAttribute("r", "4");
+            circle.setAttribute("fill", "none");
+            circle.setAttribute("stroke", "#28a745");
+            circle.setAttribute("stroke-width", "1.5");
+            svg.appendChild(circle);
+        } else {
+            // 押さえる位置（黒丸）をフレットのマス目中央に描画
+            const fretNum = parseInt(fret);
+            const circle = document.createElementNS(svgNS, "circle");
+            circle.setAttribute("cx", x);
+            const cy = startY + (fretNum * spacingY) - (spacingY / 2);
+            circle.setAttribute("cy", cy);
+            circle.setAttribute("r", "5");
+            circle.setAttribute("fill", "#212529");
+            svg.appendChild(circle);
+        }
+    });
+
+    return svg;
+}
+</script>
+
+</body>
+</html>
