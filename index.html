@@ -94,10 +94,10 @@
 
 <div class="container">
     <h1>🎸 コード進行ダイアグラム表示ツール</h1>
-    <textarea id="chordInput" placeholder="コード進行を入力（例: Gm7 C7 FM7 BbM7 Em7-5 A7 Dm）"></textarea>
+    <textarea id="chordInput" placeholder="コード進行を入力（例: B♭M7 E♭M7 F♯m7 G7）"></textarea>
     <div class="instruction">
         ※ 各コードの間はスペースや矢印（→）などで区切ってください。<br>
-        ※ Gm7やBmなどのマイナーセブンス、ハイポジションのコードにも完全対応しました。
+        ※ 「♭」「♯」などの全角記号や、全角英数字での入力にも対応しました。
     </div>
     
     <div id="diagramGrid" class="diagram-grid"></div>
@@ -105,6 +105,7 @@
 
 <script>
 // コード定義辞書 (6弦 -> 1弦の順。x: ミュート、0: 開放、数字: 実際のフレット番号)
+// 内部的にはすべて半角アルファベット・半角の 'b' や '#' で統一して管理します
 const chordDictionary = {
     // --- メジャーコード ---
     'C':    ['x', '3', '2', '0', '1', '0'],
@@ -114,6 +115,8 @@ const chordDictionary = {
     'E':    ['0', '2', '2', '1', '0', '0'],
     'A':    ['x', '0', '2', '2', '2', '0'],
     'B':    ['x', '2', '4', '4', '4', '2'],
+    'Bb':   ['x', '1', '3', '3', '3', '1'],
+    'Eb':   ['x', '6', '5', '3', '4', '3'],
 
     // --- マイナーコード (m) ---
     'Cm':   ['x', '3', '5', '5', '4', '3'],
@@ -123,6 +126,7 @@ const chordDictionary = {
     'Gm':   ['3', '5', '5', '3', '3', '3'],
     'Am':   ['x', '0', '2', '2', '1', '0'],
     'Bm':   ['x', '2', '4', '4', '3', '2'],
+    'Bbm':  ['x', '1', '3', '3', '2', '1'],
 
     // --- ドミナントセブンス (7) ---
     'C7':   ['x', '3', '2', '3', '1', '0'],
@@ -132,17 +136,20 @@ const chordDictionary = {
     'G7':   ['3', '2', '0', '0', '0', '1'],
     'A7':   ['x', '0', '2', '0', '2', '0'],
     'B7':   ['x', '2', '1', '2', '0', '2'],
+    'Bb7':  ['x', '1', '3', '1', '3', '1'],
 
     // --- マイナーセブンス (m7) ---
     'Cm7':  ['x', '3', '5', '3', '4', '3'],
     'Dm7':  ['x', 'x', '0', '2', '1', '1'],
     'Em7':  ['0', '2', '0', '0', '0', '0'],
     'Fm7':  ['1', '3', '1', '1', '1', '1'],
-    'Gm7':  ['3', 'x', '3', '3', '3', '3'], // 押さえやすい5弦ミュート型
+    'Gm7':  ['3', 'x', '3', '3', '3', '3'],
     'Am7':  ['x', '0', '2', '0', '1', '0'],
     'Bm7':  ['x', '2', '4', '2', '3', '2'],
+    'Bbm7': ['x', '1', '3', '1', '2', '1'],
+    'F#m7': ['2', '4', '2', '2', '2', '2'],
 
-    // --- メジャーセブンス (M7 / maj7) ---
+    // --- メジャーセブンス (M7) ---
     'CM7':  ['x', '3', '2', '0', '0', '0'],
     'DM7':  ['x', 'x', '0', '2', '2', '2'],
     'EM7':  ['0', '2', '1', '1', '0', '0'],
@@ -150,6 +157,7 @@ const chordDictionary = {
     'GM7':  ['3', '2', '0', '0', '0', '2'],
     'AM7':  ['x', '0', '2', '1', '2', '0'],
     'BbM7': ['x', '1', '3', '2', '3', '1'],
+    'EbM7': ['x', '6', '8', '7', '8', '6'],
 
     // --- 特殊コード (sus4 / add9 / オンコード) ---
     'Csus4': ['x', '3', '3', '0', '1', '1'],
@@ -176,8 +184,17 @@ chordInput.addEventListener('input', () => {
     diagramGrid.innerHTML = '';
 
     tokens.forEach(token => {
-        // ハイフンやマイナスもコード名(Em7-5等)として通すために正規表現を少し調整
-        const cleanName = token.replace(/[^a-zA-Z0-9#/\-]/g, '');
+        // 【新機能】 表記揺れを吸収する「正規化」処理
+        let normalized = token
+            .replace(/♭/g, 'b')  // 全角フラットを半角bに変換
+            .replace(/♯/g, '#')  // 全角シャープを半角#に変換
+            // 全角英数字が入力された場合、まとめて半角に変換
+            .replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
+                return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+            });
+
+        // クリーニングして辞書と突合
+        const cleanName = normalized.replace(/[^a-zA-Z0-9#/\-]/g, '');
         const frets = chordDictionary[cleanName];
 
         const card = document.createElement('div');
@@ -185,7 +202,7 @@ chordInput.addEventListener('input', () => {
 
         const nameDiv = document.createElement('div');
         nameDiv.className = 'chord-name';
-        nameDiv.textContent = token; 
+        nameDiv.textContent = token; // 画面表示はユーザーが入力した文字（B♭M7等）をそのまま残す
         card.appendChild(nameDiv);
 
         if (frets) {
@@ -207,7 +224,6 @@ chordInput.addEventListener('input', () => {
     });
 });
 
-// SVGでギターのコードダイアグラムを描画する関数（ハイポジション自動最適化版）
 function createChordSVG(frets) {
     const svgNS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(svgNS, "svg");
@@ -215,28 +231,24 @@ function createChordSVG(frets) {
     svg.setAttribute("height", "130");
     svg.setAttribute("viewBox", "0 0 110 130");
 
-    // フレット位置の自動計算ロジック
     const numericFrets = frets.filter(f => f !== 'x' && f !== 'X').map(Number);
     const maxFret = numericFrets.length > 0 ? Math.max(...numericFrets) : 0;
     
     let startFretNum = 1;
     let isHighPosition = false;
 
-    // 4フレットより高い位置を押さえるコードの場合、開始フレットをシフトする
     if (maxFret > 4) {
         const nonZeroFrets = numericFrets.filter(n => n > 0);
         startFretNum = nonZeroFrets.length > 0 ? Math.min(...nonZeroFrets) : 1;
         isHighPosition = true;
     }
 
-    // 配置用のベース座標 (左側にフレット番号を入れるスペースを作るためstartXを少し右に)
     const startX = 25;
     const spacingX = 14; 
     const startY = 30;
     const spacingY = 22; 
     const fretCount = 4;  
 
-    // ハイポジションの場合、左側に開始フレット数（例: 3f）を描画
     if (isHighPosition) {
         const text = document.createElementNS(svgNS, "text");
         text.setAttribute("x", startX - 8);
@@ -249,7 +261,6 @@ function createChordSVG(frets) {
         svg.appendChild(text);
     }
 
-    // 1. フレット線（水平線）の描画
     for (let i = 0; i <= fretCount; i++) {
         const line = document.createElementNS(svgNS, "line");
         const y = startY + i * spacingY;
@@ -257,14 +268,11 @@ function createChordSVG(frets) {
         line.setAttribute("y1", y);
         line.setAttribute("x2", startX + 5 * spacingX);
         line.setAttribute("y2", y);
-        
         line.setAttribute("stroke", "#495057");
-        // ローコードの0フレット（ナット）だけ太線にする
         line.setAttribute("stroke-width", (i === 0 && !isHighPosition) ? "4" : "1");
         svg.appendChild(line);
     }
 
-    // 2. 弦（垂直線）の描画
     for (let i = 0; i < 6; i++) {
         const line = document.createElementNS(svgNS, "line");
         const x = startX + i * spacingX;
@@ -277,7 +285,6 @@ function createChordSVG(frets) {
         svg.appendChild(line);
     }
 
-    // 3. 各弦のポジションマーカー配置
     frets.forEach((fret, stringIndex) => {
         const x = startX + stringIndex * spacingX;
 
@@ -292,7 +299,6 @@ function createChordSVG(frets) {
             text.textContent = "×";
             svg.appendChild(text);
         } else if (fret === '0') {
-            // ハイポジション時は開放弦を鳴らさないのが一般的なので一応ケア
             const circle = document.createElementNS(svgNS, "circle");
             circle.setAttribute("cx", x);
             circle.setAttribute("cy", startY - 10);
@@ -303,7 +309,6 @@ function createChordSVG(frets) {
             svg.appendChild(circle);
         } else {
             const fretNum = parseInt(fret);
-            // 開始フレットからの相対的な位置を計算
             const relativeFret = isHighPosition ? (fretNum - startFretNum + 1) : fretNum;
             
             const circle = document.createElementNS(svgNS, "circle");
