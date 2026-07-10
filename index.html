@@ -11,6 +11,7 @@
             --text-color: #212529;
             --primary-color: #4a90e2;
             --border-color: #dee2e6;
+            --success-color: #28a745;
         }
 
         body {
@@ -18,7 +19,7 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 20px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -31,13 +32,109 @@
 
         h1 {
             text-align: center;
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             margin-bottom: 20px;
         }
 
+        /* --- パレットのスタイル --- */
+        .palette-container {
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .palette-row {
+            margin-bottom: 12px;
+        }
+
+        .palette-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .palette-label {
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: #495057;
+            display: flex;
+            align-items: center;
+        }
+
+        .palette-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .btn-palette {
+            background: var(--bg-color);
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            padding: 8px 14px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+            color: var(--text-color);
+            /* スマホでのタップ操作を快適にするため少し大きめに */
+            touch-action: manipulation;
+        }
+
+        .btn-palette:hover {
+            background: #e9ecef;
+        }
+
+        .btn-palette.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(74, 144, 226, 0.3);
+        }
+
+        .palette-action {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 15px;
+        }
+
+        .preview-text {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            letter-spacing: 1px;
+        }
+
+        .btn-insert {
+            background: var(--success-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 24px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-insert:hover {
+            background: #218838;
+        }
+        .btn-insert:active {
+            transform: scale(0.98);
+        }
+
+        /* --- 既存のスタイル --- */
         textarea {
             width: 100%;
-            height: 90px;
+            height: 80px;
             padding: 12px;
             border: 2px solid var(--border-color);
             border-radius: 8px;
@@ -64,7 +161,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
             gap: 20px;
-            margin-top: 20px;
+            margin-top: 10px;
         }
 
         .chord-card {
@@ -91,8 +188,8 @@
         .pos-select {
             margin-top: 10px;
             width: 100%;
-            padding: 4px;
-            font-size: 0.8rem;
+            padding: 6px;
+            font-size: 0.85rem;
             border-radius: 4px;
             border: 1px solid var(--border-color);
             background-color: var(--bg-color);
@@ -100,28 +197,161 @@
             outline: none;
         }
 
-        svg {
-            overflow: visible;
-        }
+        svg { overflow: visible; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>🎸 コード進行ダイアグラム表示ツール</h1>
-    <textarea id="chordInput" placeholder="コード進行を入力（例: G/E F#m7 B♭M7 C#m）">G/E D/F# G#m7 C#M7 C/G F#sus4</textarea>
+    
+    <div class="palette-container" id="paletteContainer">
+        </div>
+
+    <textarea id="chordInput" placeholder="直接入力も可能です（例: G/E F#m7 B♭M7 C#m）"></textarea>
     <div class="instruction">
-        ※ 各コードの間はスペースや矢印（→）などで区切ってください。<br>
-        ※ G#などのシャープ、G/Eなどの分数コードに対応。カード下のプルダウンから別ポジションを選択できます。
+        ※ パレットから選択して「追加」を押すか、直接テキストを入力してください。<br>
+        ※ 各コードの間はスペース等で区切られます。
     </div>
     
     <div id="diagramGrid" class="diagram-grid"></div>
 </div>
 
 <script>
-// --- 1. 基本辞書（オープンコードや、特殊な分数コードのみを登録） ---
-// ※ここに入っていないコード（ハイポジション等）は後述のエンジンで自動生成されます。
-// 値は「配列の配列」になり、複数のポジションを持てるようになりました。
+// ==========================================
+// 1. パレットUIの構築と制御
+// ==========================================
+const paletteData = {
+    root: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+    quality: [
+        { label: 'M(major)', val: '' },
+        { label: 'm', val: 'm' },
+        { label: 'M7', val: 'M7' },
+        { label: 'm7', val: 'm7' },
+        { label: '7', val: '7' },
+        { label: 'm7b5', val: 'm7b5' },
+        { label: 'dim', val: 'dim' },
+        { label: 'aug', val: 'aug' },
+        { label: 'sus2', val: 'sus2' },
+        { label: 'sus4', val: 'sus4' },
+        { label: 'add9', val: 'add9' },
+        { label: '6', val: '6' }
+    ],
+    bass: ['ー(指定無)', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+};
+
+let currentSelection = {
+    root: 'C',
+    quality: '',
+    bass: 'ー(指定無)'
+};
+
+function initPalette() {
+    const container = document.getElementById('paletteContainer');
+    
+    // ■ ルート
+    container.appendChild(createPaletteRow('■ ルート', paletteData.root, 'root', (val) => val));
+    
+    // ■ QUALITY
+    container.appendChild(createPaletteRow('■ QUALITY', paletteData.quality, 'quality', (item) => item.val, (item) => item.label));
+    
+    // ■ BASS
+    container.appendChild(createPaletteRow('■ BASS (オンコード)', paletteData.bass, 'bass', (val) => val));
+
+    // 追加ボタンとプレビューエリア
+    const actionDiv = document.createElement('div');
+    actionDiv.className = 'palette-action';
+    
+    const previewDiv = document.createElement('div');
+    previewDiv.className = 'preview-text';
+    previewDiv.id = 'palettePreview';
+    
+    const insertBtn = document.createElement('button');
+    insertBtn.className = 'btn-insert';
+    insertBtn.innerHTML = '追加 ＋';
+    insertBtn.onclick = insertChord;
+
+    actionDiv.appendChild(previewDiv);
+    actionDiv.appendChild(insertBtn);
+    container.appendChild(actionDiv);
+
+    updatePreview();
+}
+
+function createPaletteRow(titleText, items, type, valueExtractor, labelExtractor = null) {
+    const row = document.createElement('div');
+    row.className = 'palette-row';
+
+    const label = document.createElement('div');
+    label.className = 'palette-label';
+    label.textContent = titleText;
+    row.appendChild(label);
+
+    const buttonsDiv = document.createElement('div');
+    buttonsDiv.className = 'palette-buttons';
+
+    items.forEach(item => {
+        const val = valueExtractor(item);
+        const displayLabel = labelExtractor ? labelExtractor(item) : val;
+        
+        const btn = document.createElement('button');
+        btn.className = 'btn-palette';
+        btn.textContent = displayLabel;
+        if (currentSelection[type] === val) {
+            btn.classList.add('active');
+        }
+        
+        btn.onclick = () => {
+            // アクティブ状態の更新
+            Array.from(buttonsDiv.children).forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentSelection[type] = val;
+            updatePreview();
+        };
+        buttonsDiv.appendChild(btn);
+    });
+
+    row.appendChild(buttonsDiv);
+    return row;
+}
+
+// 選択状態からコードの文字列を組み立てる
+function getConstructedChord() {
+    let chord = currentSelection.root + currentSelection.quality;
+    if (currentSelection.bass !== 'ー(指定無)') {
+        chord += '/' + currentSelection.bass;
+    }
+    return chord;
+}
+
+function updatePreview() {
+    document.getElementById('palettePreview').textContent = "Next: " + getConstructedChord();
+}
+
+// テキストエリアへの追加処理
+function insertChord() {
+    const chordInput = document.getElementById('chordInput');
+    const newChord = getConstructedChord();
+    let currentText = chordInput.value;
+
+    if (currentText.length > 0 && !currentText.endsWith(' ') && !currentText.endsWith('\n')) {
+        currentText += ' ';
+    }
+    
+    chordInput.value = currentText + newChord + ' ';
+    
+    // フォーカスを当てて一番下へスクロール
+    chordInput.focus();
+    chordInput.selectionStart = chordInput.value.length;
+    chordInput.selectionEnd = chordInput.value.length;
+
+    render(); // 画面を更新
+}
+
+
+// ==========================================
+// 2. 辞書 ＆ コード生成エンジン (拡張版)
+// ==========================================
 const chordDictionary = {
     // 基本のオープンコード
     'C':    [ ['x', '3', '2', '0', '1', '0'] ],
@@ -132,22 +362,17 @@ const chordDictionary = {
     'Am':   [ ['x', '0', '2', '2', '1', '0'] ],
     'Dm':   [ ['x', 'x', '0', '2', '3', '1'] ],
     'Em':   [ ['0', '2', '2', '0', '0', '0'] ],
-
-    // リクエストのあった分数コード（スラッシュコード）の代表例
+    
+    // スラッシュコード代表例（辞書登録分）
     'G/E':  [ ['0', '2', '0', '0', '0', '3'], ['0', '10', '12', '12', '12', '10'] ],
     'D/F#': [ ['2', '0', '0', '2', '3', '2'] ],
-    'C/G':  [ ['3', '3', '2', '0', '1', '0'], ['x', '10', '10', '9', '8', '8'] ],
-    'G/B':  [ ['x', '2', '0', '0', '0', '3'], ['7', '10', '9', '7', '8', '7'] ],
+    'C/G':  [ ['3', '3', '2', '0', '1', '0'] ],
+    'G/B':  [ ['x', '2', '0', '0', '0', '3'] ],
     'Am/G': [ ['3', '0', '2', '2', '1', '0'] ],
-    'F/G':  [ ['3', 'x', '3', '2', '1', '1'] ],
     'A/C#': [ ['x', '4', '2', '2', '2', 'x'] ],
-    'E/G#': [ ['4', 'x', '2', '4', '5', 'x'], ['4', '7', '6', '4', '5', '4'] ],
-    'C/E':  [ ['0', '3', '2', '0', '1', '0'] ],
-    'Dm/C': [ ['x', '3', '0', '2', '3', '1'] ]
+    'E/G#': [ ['4', 'x', '2', '4', '5', 'x'] ]
 };
 
-// --- 2. バレーコード自動生成エンジン ---
-// 入力されたコード名（G#m7など）を解析し、6弦ルートと5弦ルートのポジションを数学的に自動生成します。
 function generateBarreChords(chordName) {
     const match = chordName.match(/^([A-G][#b]?)(.*)$/);
     if (!match) return [];
@@ -155,7 +380,6 @@ function generateBarreChords(chordName) {
     const root = match[1];
     const type = match[2];
 
-    // ルート音のフレット位置（6弦と5弦）
     const root6 = { 'E':0, 'F':1, 'F#':2, 'Gb':2, 'G':3, 'G#':4, 'Ab':4, 'A':5, 'A#':6, 'Bb':6, 'B':7, 'C':8, 'C#':9, 'Db':9, 'D':10, 'D#':11, 'Eb':11 };
     const root5 = { 'A':0, 'A#':1, 'Bb':1, 'B':2, 'C':3, 'C#':4, 'Db':4, 'D':5, 'D#':6, 'Eb':6, 'E':7, 'F':8, 'F#':9, 'Gb':9, 'G':10, 'G#':11, 'Ab':11 };
 
@@ -163,50 +387,57 @@ function generateBarreChords(chordName) {
     const r5 = root5[root];
     if (r6 === undefined || r5 === undefined) return [];
 
-    // コードタイプごとの指の形（EシェイプとAシェイプ）
+    // パレット追加分(m7b5, dim, aug, add9, 6)のバレーシェイプも追加定義
     const shapes6 = {
-        '':     [r6, r6+2, r6+2, r6+1, r6, r6],       // メジャー
-        'm':    [r6, r6+2, r6+2, r6, r6, r6],         // マイナー
-        '7':    [r6, r6+2, r6, r6+1, r6, r6],         // 7th
-        'm7':   [r6, r6+2, r6, r6, r6, r6],           // m7
-        'M7':   [r6, 'x', r6+1, r6+1, r6, 'x'],       // M7 (親指ルート省略型)
-        'sus4': [r6, r6+2, r6+2, r6+2, r6, r6]        // sus4
+        '':     [r6, r6+2, r6+2, r6+1, r6, r6],       
+        'm':    [r6, r6+2, r6+2, r6, r6, r6],         
+        '7':    [r6, r6+2, r6, r6+1, r6, r6],         
+        'm7':   [r6, r6+2, r6, r6, r6, r6],           
+        'M7':   [r6, 'x', r6+1, r6+1, r6, 'x'],       
+        'sus4': [r6, r6+2, r6+2, r6+2, r6, r6],
+        'sus2': [r6, r6+2, r6+4, r6+2, r6, r6],
+        'm7b5': [r6, 'x', r6, r6, r6-1, 'x'],
+        'dim':  [r6, 'x', r6-1, r6, r6-1, 'x'],       // dim7フォームを代用
+        'aug':  [r6, 'x', r6+2, r6+1, r6+1, 'x'],
+        'add9': [r6, r6+2, r6+2, r6+1, r6, r6+2],
+        '6':    [r6, 'x', r6-1, r6+1, r6, 'x']
     };
 
     const shapes5 = {
-        '':     ['x', r5, r5+2, r5+2, r5+2, r5],      // メジャー
-        'm':    ['x', r5, r5+2, r5+2, r5+1, r5],      // マイナー
-        '7':    ['x', r5, r5+2, r5, r5+2, r5],        // 7th
-        'm7':   ['x', r5, r5+2, r5, r5+1, r5],        // m7
-        'M7':   ['x', r5, r5+2, r5+1, r5+2, r5],      // M7
-        'sus2': ['x', r5, r5+2, r5+2, r5, r5]         // sus2
+        '':     ['x', r5, r5+2, r5+2, r5+2, r5],      
+        'm':    ['x', r5, r5+2, r5+2, r5+1, r5],      
+        '7':    ['x', r5, r5+2, r5, r5+2, r5],        
+        'm7':   ['x', r5, r5+2, r5, r5+1, r5],        
+        'M7':   ['x', r5, r5+2, r5+1, r5+2, r5],      
+        'sus2': ['x', r5, r5+2, r5+2, r5, r5],
+        'sus4': ['x', r5, r5+2, r5, r5+3, r5],
+        'm7b5': ['x', r5, r5+1, r5, r5+1, 'x'],
+        'dim':  ['x', r5, r5+1, r5-1, r5+1, 'x'],
+        'aug':  ['x', r5, r5+2, r5+1, r5+2, 'x'],
+        'add9': ['x', r5, r5+2, r5+4, r5+3, r5],
+        '6':    ['x', r5, r5+2, r5-1, r5+2, 'x']
     };
 
     const result = [];
-    // 0フレット(開放弦)の形は辞書に任せ、バレーコード(1f以上)のみ生成
     if (shapes6[type] && r6 > 0) result.push(shapes6[type].map(String));
     if (shapes5[type] && r5 > 0) result.push(shapes5[type].map(String));
     
     return result;
 }
 
-// ユーザーが選択したポジションを記憶するオブジェクト { "インデックス_コード名": 選択されたポジション番号 }
 let selectedPositions = {}; 
-
 const chordInput = document.getElementById('chordInput');
 const diagramGrid = document.getElementById('diagramGrid');
 
-// 初期表示
-render();
-chordInput.addEventListener('input', render);
-
+// ==========================================
+// 3. 描画処理 (SVGの生成と表示)
+// ==========================================
 function render() {
     const text = chordInput.value;
     const tokens = text.split(/[\s,➔→\->]+/).filter(t => t.trim() !== '');
     diagramGrid.innerHTML = '';
 
     tokens.forEach((token, index) => {
-        // 表記揺れの正規化（全角記号を半角へ）
         let normalized = token
             .replace(/♭/g, 'b')
             .replace(/♯/g, '#')
@@ -215,11 +446,9 @@ function render() {
             });
         const cleanName = normalized.replace(/[^a-zA-Z0-9#/\-]/g, '');
 
-        // 1. 辞書から取得 ＆ 2. エンジンから自動生成
         const dictPositions = chordDictionary[cleanName] || [];
         const generatedPositions = generateBarreChords(cleanName);
 
-        // 重複を排除しながら1つの候補リストにまとめる
         const allPositions = [];
         const seen = new Set();
         [...dictPositions, ...generatedPositions].forEach(frets => {
@@ -235,21 +464,18 @@ function render() {
 
         const nameDiv = document.createElement('div');
         nameDiv.className = 'chord-name';
-        nameDiv.textContent = token; // 表示はユーザー入力のまま
+        nameDiv.textContent = token;
         card.appendChild(nameDiv);
 
         if (allPositions.length > 0) {
-            // 状態管理用のキー（入力が変わっても極力選択状態を維持するため）
             const stateKey = `${index}_${cleanName}`;
             let posIndex = selectedPositions[stateKey] || 0;
-            if (posIndex >= allPositions.length) posIndex = 0; // 安全対策
+            if (posIndex >= allPositions.length) posIndex = 0;
 
-            // SVG描画
             const frets = allPositions[posIndex];
             const svg = createChordSVG(frets);
             card.appendChild(svg);
 
-            // 複数ポジションがある場合のみ、プルダウンを表示
             if (allPositions.length > 1) {
                 const select = document.createElement('select');
                 select.className = 'pos-select';
@@ -257,7 +483,6 @@ function render() {
                 allPositions.forEach((pos, i) => {
                     const opt = document.createElement('option');
                     opt.value = i;
-                    // プルダウンに「オープン」「3fポジション」などのラベルをつける
                     opt.textContent = `候補${i + 1} (${getFretLabel(pos)})`;
                     if (i === posIndex) opt.selected = true;
                     select.appendChild(opt);
@@ -265,12 +490,11 @@ function render() {
 
                 select.addEventListener('change', (e) => {
                     selectedPositions[stateKey] = parseInt(e.target.value);
-                    render(); // 変更時に再描画
+                    render();
                 });
                 card.appendChild(select);
             }
         } else {
-            // 未登録・自動生成不可の場合
             const unknown = document.createElement('div');
             unknown.style.height = '120px';
             unknown.style.display = 'flex';
@@ -285,7 +509,6 @@ function render() {
     });
 }
 
-// ポジションの特徴（開始フレット）を日本語ラベルにして返す関数
 function getFretLabel(frets) {
     if (frets.includes('0')) return "オープン";
     const nums = frets.filter(f => f !== 'x' && f !== 'X').map(Number);
@@ -293,7 +516,6 @@ function getFretLabel(frets) {
     return `${minFret}fポジション`;
 }
 
-// SVG描画関数
 function createChordSVG(frets) {
     const svgNS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(svgNS, "svg");
@@ -393,7 +615,12 @@ function createChordSVG(frets) {
 
     return svg;
 }
-</script>
 
+// 起動時の初期化
+initPalette();
+render();
+chordInput.addEventListener('input', render);
+
+</script>
 </body>
 </html>
