@@ -563,7 +563,7 @@ function getFretLabel(frets) {
     if (frets.includes('0')) return "オープン";
     const nums = frets.filter(f => f !== 'x' && f !== 'X').map(Number);
     const minFret = nums.filter(n => n > 0).length > 0 ? Math.min(...nums.filter(n => n > 0)) : 1;
-    return `${minFret}fPosition`;
+    return `${minFret}F Position`;
 }
 
 function createChordSVG(frets) {
