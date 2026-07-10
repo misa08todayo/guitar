@@ -130,6 +130,34 @@
             transform: scale(0.98);
         }
 
+        /* --- 設定エリア --- */
+        .settings-bar {
+            display: flex;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        
+        .settings-bar span {
+            font-weight: bold;
+            font-size: 0.95rem;
+            margin-right: 15px;
+            color: #495057;
+        }
+
+        .setting-label {
+            margin-right: 15px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
         /* --- 既存のスタイル --- */
         textarea {
             width: 100%;
@@ -158,7 +186,8 @@
 
         .diagram-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            /* 横表示でも見切れないように min-width を少し拡張 */
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
             gap: 20px;
             margin-top: 10px;
         }
@@ -167,7 +196,7 @@
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 10px;
+            padding: 15px 10px;
             text-align: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             display: flex;
@@ -178,14 +207,14 @@
         .chord-name {
             font-weight: bold;
             font-size: 1.2rem;
-            margin-bottom: 5px;
+            margin-bottom: 10px;
             color: var(--primary-color);
             min-height: 1.5rem;
             word-break: break-all;
         }
 
         .pos-select {
-            margin-top: 10px;
+            margin-top: 15px;
             width: 100%;
             padding: 6px;
             font-size: 0.85rem;
@@ -196,7 +225,7 @@
             outline: none;
         }
 
-        svg { overflow: visible; }
+        svg { overflow: visible; display: block; margin: 0 auto; }
     </style>
 </head>
 <body>
@@ -207,7 +236,17 @@
     <div class="palette-container" id="paletteContainer">
         </div>
 
-    <textarea id="chordInput" placeholder="直接入力も可能です（例: G/E F#m7 B♭M7 C#m）">C C/E F F/G C</textarea>
+    <div class="settings-bar">
+        <span>表示設定:</span>
+        <label class="setting-label">
+            <input type="radio" name="orientation" value="vertical" checked onchange="render()"> 縦（標準）
+        </label>
+        <label class="setting-label">
+            <input type="radio" name="orientation" value="horizontal" onchange="render()"> 横（TAB譜風）
+        </label>
+    </div>
+
+    <textarea id="chordInput" placeholder="直接入力も可能です（例: G/E F#m7 B♭M7 C#m）">C Gsus2 F/G C</textarea>
     <div class="instruction">
         ※ パレットから選択して「追加」を押すか、直接テキストを入力してください。<br>
         ※ 各コードの間はスペース等で区切られます。
@@ -339,7 +378,7 @@ function insertChord() {
 
 
 // ==========================================
-// 2. 辞書 ＆ コード生成エンジン (バグ修正＆拡張版)
+// 2. 辞書 ＆ コード生成エンジン
 // ==========================================
 const chordDictionary = {
     // --- 基本のオープンコード ---
@@ -354,43 +393,32 @@ const chordDictionary = {
     'Em':   [ ['0', '2', '2', '0', '0', '0'] ],
     
     // --- オンコード（分数コード）拡充版 ---
-    // Cベース
     'F/C':  [ ['x', '3', '3', '2', '1', '1'] ],
     'Am/C': [ ['x', '3', '2', '2', '1', '0'] ],
     'Dm/C': [ ['x', '3', 'x', '2', '3', '1'] ],
     'D/C':  [ ['x', '3', '0', '2', '3', '2'] ],
-    // C#ベース
     'A/C#': [ ['x', '4', '2', '2', '2', 'x'] ],
-    // Dベース
     'G/D':  [ ['x', 'x', '0', '0', '0', '3'] ],
     'Em/D': [ ['x', 'x', '0', '0', '0', '0'] ],
     'C/D':  [ ['x', 'x', '0', '0', '1', '0'] ],
-    // D#ベース
     'B/D#': [ ['x', '6', '4', '4', '4', 'x'] ],
-    // Eベース
     'C/E':  [ ['0', '3', '2', '0', '1', '0'] ],
     'D/E':  [ ['0', 'x', '0', '2', '3', '2'] ],
     'F/E':  [ ['0', '3', '3', '2', '1', '1'] ],
     'G/E':  [ ['0', '2', '0', '0', '0', '3'], ['0', '10', '12', '12', '12', '10'] ],
     'Dm/E': [ ['0', 'x', '0', '2', '3', '1'] ],
-    // Fベース
     'Dm/F': [ ['1', '0', '0', '2', '3', '1'] ],
     'G/F':  [ ['1', '2', '0', '0', '0', '3'] ],
-    // F#ベース
     'D/F#': [ ['2', '0', '0', '2', '3', '2'] ],
     'Em/F#':[ ['2', '2', '2', '0', '0', '0'] ],
-    // Gベース
     'C/G':  [ ['3', '3', '2', '0', '1', '0'] ],
     'Am/G': [ ['3', '0', '2', '2', '1', '0'] ],
     'F/G':  [ ['3', 'x', '3', '2', '1', '1'] ],
     'Em/G': [ ['3', '2', '2', '0', '0', '0'] ],
-    // G#ベース
     'E/G#': [ ['4', 'x', '2', '4', '5', 'x'] ],
-    // Aベース
     'D/A':  [ ['x', '0', '0', '2', '3', '2'] ],
     'F/A':  [ ['x', '0', '3', '2', '1', '1'] ],
     'G/A':  [ ['x', '0', '0', '0', '0', '3'] ],
-    // Bベース
     'G/B':  [ ['x', '2', '0', '0', '0', '3'] ],
     'C/B':  [ ['x', '2', '2', '0', '1', '0'] ],
     'Am/B': [ ['x', '2', '2', '2', '1', '0'] ],
@@ -398,7 +426,7 @@ const chordDictionary = {
 
 function generateBarreChords(chordName) {
     const match = chordName.match(/^([A-G][#b]?)([^/]*)$/);
-    if (!match) return []; // オンコードなどの特殊な形は辞書に無ければ空配列を返す（エラー回避）
+    if (!match) return [];
     
     const root = match[1];
     const type = match[2];
@@ -452,7 +480,7 @@ const chordInput = document.getElementById('chordInput');
 const diagramGrid = document.getElementById('diagramGrid');
 
 // ==========================================
-// 3. 描画処理 (SVGの生成と表示)
+// 3. 描画処理 (可変長フレット ＆ 縦横切り替え)
 // ==========================================
 function render() {
     const text = chordInput.value;
@@ -541,96 +569,170 @@ function getFretLabel(frets) {
 function createChordSVG(frets) {
     const svgNS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(svgNS, "svg");
-    svg.setAttribute("width", "110");
-    svg.setAttribute("height", "130");
-    svg.setAttribute("viewBox", "0 0 110 130");
+    
+    // 表示方向の取得
+    const isVert = document.querySelector('input[name="orientation"]:checked').value === 'vertical';
 
+    // 最大フレット幅を動的に算出
     const numericFrets = frets.filter(f => f !== 'x' && f !== 'X').map(Number);
     const maxFret = numericFrets.length > 0 ? Math.max(...numericFrets) : 0;
     
     let startFretNum = 1;
     let isHighPosition = false;
 
+    // ハイポジションかどうかの判定 (4fを超える場合)
     if (maxFret > 4) {
         const nonZeroFrets = numericFrets.filter(n => n > 0);
         startFretNum = nonZeroFrets.length > 0 ? Math.min(...nonZeroFrets) : 1;
         isHighPosition = true;
     }
 
-    const startX = 25;
-    const spacingX = 14; 
-    const startY = 30;
-    const spacingY = 22; 
-    const fretCount = 4;  
+    // 💡修正ポイント: 描画するフレット数（行数/列数）をコードの最大幅に合わせて自動拡張
+    const actualSpan = maxFret - startFretNum + 1;
+    const fretCount = Math.max(4, actualSpan); 
 
+    // スペーシング設定
+    const spacingString = 14; 
+    const spacingFret = 22;   
+    const startX = isVert ? 25 : 35; // 横表示の際は左側の「×」や「○」用に余白を広く取る
+    const startY = 30;
+
+    // SVGのキャンバスサイズを縦横に合わせて動的設定
+    let viewWidth, viewHeight;
+    if (isVert) {
+        viewWidth = 110;
+        viewHeight = startY + fretCount * spacingFret + 20; 
+    } else {
+        viewWidth = startX + fretCount * spacingFret + 20; 
+        viewHeight = 130; 
+    }
+    
+    svg.setAttribute("width", viewWidth.toString());
+    svg.setAttribute("height", viewHeight.toString());
+    svg.setAttribute("viewBox", `0 0 ${viewWidth} ${viewHeight}`);
+
+    // --- ハイポジション時の「◯f」テキスト描画 ---
     if (isHighPosition) {
         const text = document.createElementNS(svgNS, "text");
-        text.setAttribute("x", startX - 8);
-        text.setAttribute("y", startY + (spacingY / 2) + 4);
-        text.setAttribute("text-anchor", "end");
         text.setAttribute("font-size", "11");
         text.setAttribute("font-weight", "bold");
         text.setAttribute("fill", "#6c757d");
         text.textContent = startFretNum + "f";
+        
+        if (isVert) {
+            text.setAttribute("x", startX - 8);
+            text.setAttribute("y", startY + (spacingFret / 2) + 4);
+            text.setAttribute("text-anchor", "end");
+        } else {
+            text.setAttribute("x", startX + (spacingFret / 2));
+            text.setAttribute("y", startY + 5 * spacingString + 18); // 6弦の下に配置
+            text.setAttribute("text-anchor", "middle");
+        }
         svg.appendChild(text);
     }
 
+    // --- フレット線の描画 ---
     for (let i = 0; i <= fretCount; i++) {
         const line = document.createElementNS(svgNS, "line");
-        const y = startY + i * spacingY;
-        line.setAttribute("x1", startX);
-        line.setAttribute("y1", y);
-        line.setAttribute("x2", startX + 5 * spacingX);
-        line.setAttribute("y2", y);
         line.setAttribute("stroke", "#495057");
         line.setAttribute("stroke-width", (i === 0 && !isHighPosition) ? "4" : "1");
+        
+        if (isVert) {
+            const y = startY + i * spacingFret;
+            line.setAttribute("x1", startX);
+            line.setAttribute("y1", y);
+            line.setAttribute("x2", startX + 5 * spacingString);
+            line.setAttribute("y2", y);
+        } else {
+            const x = startX + i * spacingFret;
+            line.setAttribute("x1", x);
+            line.setAttribute("y1", startY);
+            line.setAttribute("x2", x);
+            line.setAttribute("y2", startY + 5 * spacingString);
+        }
         svg.appendChild(line);
     }
 
+    // --- 弦の描画 ---
     for (let i = 0; i < 6; i++) {
         const line = document.createElementNS(svgNS, "line");
-        const x = startX + i * spacingX;
-        line.setAttribute("x1", x);
-        line.setAttribute("y1", startY);
-        line.setAttribute("x2", x);
-        line.setAttribute("y2", startY + fretCount * spacingY);
         line.setAttribute("stroke", "#a1a1a1");
         line.setAttribute("stroke-width", "1.5");
+        
+        if (isVert) {
+            const x = startX + i * spacingString;
+            line.setAttribute("x1", x);
+            line.setAttribute("y1", startY);
+            line.setAttribute("x2", x);
+            line.setAttribute("y2", startY + fretCount * spacingFret);
+        } else {
+            // 横表示の場合、i=0(6弦)を下に、i=5(1弦)を上にするため反転
+            const y = startY + (5 - i) * spacingString;
+            line.setAttribute("x1", startX);
+            line.setAttribute("y1", y);
+            line.setAttribute("x2", startX + fretCount * spacingFret);
+            line.setAttribute("y2", y);
+        }
         svg.appendChild(line);
     }
 
+    // --- 指のポジション(黒丸)、ミュート(×)、開放弦(○)の描画 ---
     frets.forEach((fret, stringIndex) => {
-        const x = startX + stringIndex * spacingX;
+        let cx, cy;
+        if (isVert) {
+            cx = startX + stringIndex * spacingString;
+        } else {
+            cy = startY + (5 - stringIndex) * spacingString; // 6弦が一番下
+        }
 
         if (fret === 'x' || fret === 'X') {
             const text = document.createElementNS(svgNS, "text");
-            text.setAttribute("x", x);
-            text.setAttribute("y", startY - 8);
             text.setAttribute("text-anchor", "middle");
             text.setAttribute("font-size", "12");
             text.setAttribute("font-weight", "bold");
             text.setAttribute("fill", "#dc3545");
             text.textContent = "×";
+            
+            if (isVert) {
+                text.setAttribute("x", cx);
+                text.setAttribute("y", startY - 8);
+            } else {
+                text.setAttribute("x", startX - 12);
+                text.setAttribute("y", cy + 4); // 縦方向の微調整
+            }
             svg.appendChild(text);
+            
         } else if (fret === '0') {
             const circle = document.createElementNS(svgNS, "circle");
-            circle.setAttribute("cx", x);
-            circle.setAttribute("cy", startY - 10);
             circle.setAttribute("r", "4");
             circle.setAttribute("fill", "none");
             circle.setAttribute("stroke", "#28a745");
             circle.setAttribute("stroke-width", "1.5");
+            
+            if (isVert) {
+                circle.setAttribute("cx", cx);
+                circle.setAttribute("cy", startY - 10);
+            } else {
+                circle.setAttribute("cx", startX - 12);
+                circle.setAttribute("cy", cy);
+            }
             svg.appendChild(circle);
+            
         } else {
             const fretNum = parseInt(fret);
             const relativeFret = isHighPosition ? (fretNum - startFretNum + 1) : fretNum;
             
             const circle = document.createElementNS(svgNS, "circle");
-            circle.setAttribute("cx", x);
-            const cy = startY + (relativeFret * spacingY) - (spacingY / 2);
-            circle.setAttribute("cy", cy);
             circle.setAttribute("r", "5");
             circle.setAttribute("fill", "#212529");
+            
+            if (isVert) {
+                circle.setAttribute("cx", cx);
+                circle.setAttribute("cy", startY + (relativeFret * spacingFret) - (spacingFret / 2));
+            } else {
+                circle.setAttribute("cx", startX + (relativeFret * spacingFret) - (spacingFret / 2));
+                circle.setAttribute("cy", cy);
+            }
             svg.appendChild(circle);
         }
     });
