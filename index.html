@@ -79,7 +79,6 @@
             cursor: pointer;
             transition: all 0.15s ease-in-out;
             color: var(--text-color);
-            /* スマホでのタップ操作を快適にするため少し大きめに */
             touch-action: manipulation;
         }
 
@@ -208,7 +207,7 @@
     <div class="palette-container" id="paletteContainer">
         </div>
 
-    <textarea id="chordInput" placeholder="直接入力も可能です（例: G/E F#m7 B♭M7 C#m）"></textarea>
+    <textarea id="chordInput" placeholder="直接入力も可能です（例: G/E F#m7 B♭M7 C#m）">C C/E F F/G C</textarea>
     <div class="instruction">
         ※ パレットから選択して「追加」を押すか、直接テキストを入力してください。<br>
         ※ 各コードの間はスペース等で区切られます。
@@ -249,16 +248,10 @@ let currentSelection = {
 function initPalette() {
     const container = document.getElementById('paletteContainer');
     
-    // ■ ルート
     container.appendChild(createPaletteRow('■ ルート', paletteData.root, 'root', (val) => val));
-    
-    // ■ QUALITY
     container.appendChild(createPaletteRow('■ QUALITY', paletteData.quality, 'quality', (item) => item.val, (item) => item.label));
-    
-    // ■ BASS
     container.appendChild(createPaletteRow('■ BASS (オンコード)', paletteData.bass, 'bass', (val) => val));
 
-    // 追加ボタンとプレビューエリア
     const actionDiv = document.createElement('div');
     actionDiv.className = 'palette-action';
     
@@ -302,7 +295,6 @@ function createPaletteRow(titleText, items, type, valueExtractor, labelExtractor
         }
         
         btn.onclick = () => {
-            // アクティブ状態の更新
             Array.from(buttonsDiv.children).forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentSelection[type] = val;
@@ -315,7 +307,6 @@ function createPaletteRow(titleText, items, type, valueExtractor, labelExtractor
     return row;
 }
 
-// 選択状態からコードの文字列を組み立てる
 function getConstructedChord() {
     let chord = currentSelection.root + currentSelection.quality;
     if (currentSelection.bass !== 'ー(指定無)') {
@@ -328,7 +319,6 @@ function updatePreview() {
     document.getElementById('palettePreview').textContent = "Next: " + getConstructedChord();
 }
 
-// テキストエリアへの追加処理
 function insertChord() {
     const chordInput = document.getElementById('chordInput');
     const newChord = getConstructedChord();
@@ -340,42 +330,75 @@ function insertChord() {
     
     chordInput.value = currentText + newChord + ' ';
     
-    // フォーカスを当てて一番下へスクロール
     chordInput.focus();
     chordInput.selectionStart = chordInput.value.length;
     chordInput.selectionEnd = chordInput.value.length;
 
-    render(); // 画面を更新
+    render();
 }
 
 
 // ==========================================
-// 2. 辞書 ＆ コード生成エンジン (拡張版)
+// 2. 辞書 ＆ コード生成エンジン (バグ修正＆拡張版)
 // ==========================================
 const chordDictionary = {
-    // 基本のオープンコード
+    // --- 基本のオープンコード ---
     'C':    [ ['x', '3', '2', '0', '1', '0'] ],
-    'G':    [ ['3', '2', '0', '0', '0', '3'] ],
     'D':    [ ['x', 'x', '0', '2', '3', '2'] ],
-    'A':    [ ['x', '0', '2', '2', '2', '0'] ],
     'E':    [ ['0', '2', '2', '1', '0', '0'] ],
+    'F':    [ ['1', '3', '3', '2', '1', '1'], ['x', 'x', '3', '2', '1', '1'] ],
+    'G':    [ ['3', '2', '0', '0', '0', '3'] ],
+    'A':    [ ['x', '0', '2', '2', '2', '0'] ],
     'Am':   [ ['x', '0', '2', '2', '1', '0'] ],
     'Dm':   [ ['x', 'x', '0', '2', '3', '1'] ],
     'Em':   [ ['0', '2', '2', '0', '0', '0'] ],
     
-    // スラッシュコード代表例（辞書登録分）
-    'G/E':  [ ['0', '2', '0', '0', '0', '3'], ['0', '10', '12', '12', '12', '10'] ],
-    'D/F#': [ ['2', '0', '0', '2', '3', '2'] ],
-    'C/G':  [ ['3', '3', '2', '0', '1', '0'] ],
-    'G/B':  [ ['x', '2', '0', '0', '0', '3'] ],
-    'Am/G': [ ['3', '0', '2', '2', '1', '0'] ],
+    // --- オンコード（分数コード）拡充版 ---
+    // Cベース
+    'F/C':  [ ['x', '3', '3', '2', '1', '1'] ],
+    'Am/C': [ ['x', '3', '2', '2', '1', '0'] ],
+    'Dm/C': [ ['x', '3', 'x', '2', '3', '1'] ],
+    'D/C':  [ ['x', '3', '0', '2', '3', '2'] ],
+    // C#ベース
     'A/C#': [ ['x', '4', '2', '2', '2', 'x'] ],
-    'E/G#': [ ['4', 'x', '2', '4', '5', 'x'] ]
+    // Dベース
+    'G/D':  [ ['x', 'x', '0', '0', '0', '3'] ],
+    'Em/D': [ ['x', 'x', '0', '0', '0', '0'] ],
+    'C/D':  [ ['x', 'x', '0', '0', '1', '0'] ],
+    // D#ベース
+    'B/D#': [ ['x', '6', '4', '4', '4', 'x'] ],
+    // Eベース
+    'C/E':  [ ['0', '3', '2', '0', '1', '0'] ],
+    'D/E':  [ ['0', 'x', '0', '2', '3', '2'] ],
+    'F/E':  [ ['0', '3', '3', '2', '1', '1'] ],
+    'G/E':  [ ['0', '2', '0', '0', '0', '3'], ['0', '10', '12', '12', '12', '10'] ],
+    'Dm/E': [ ['0', 'x', '0', '2', '3', '1'] ],
+    // Fベース
+    'Dm/F': [ ['1', '0', '0', '2', '3', '1'] ],
+    'G/F':  [ ['1', '2', '0', '0', '0', '3'] ],
+    // F#ベース
+    'D/F#': [ ['2', '0', '0', '2', '3', '2'] ],
+    'Em/F#':[ ['2', '2', '2', '0', '0', '0'] ],
+    // Gベース
+    'C/G':  [ ['3', '3', '2', '0', '1', '0'] ],
+    'Am/G': [ ['3', '0', '2', '2', '1', '0'] ],
+    'F/G':  [ ['3', 'x', '3', '2', '1', '1'] ],
+    'Em/G': [ ['3', '2', '2', '0', '0', '0'] ],
+    // G#ベース
+    'E/G#': [ ['4', 'x', '2', '4', '5', 'x'] ],
+    // Aベース
+    'D/A':  [ ['x', '0', '0', '2', '3', '2'] ],
+    'F/A':  [ ['x', '0', '3', '2', '1', '1'] ],
+    'G/A':  [ ['x', '0', '0', '0', '0', '3'] ],
+    // Bベース
+    'G/B':  [ ['x', '2', '0', '0', '0', '3'] ],
+    'C/B':  [ ['x', '2', '2', '0', '1', '0'] ],
+    'Am/B': [ ['x', '2', '2', '2', '1', '0'] ],
 };
 
 function generateBarreChords(chordName) {
-    const match = chordName.match(/^([A-G][#b]?)(.*)$/);
-    if (!match) return [];
+    const match = chordName.match(/^([A-G][#b]?)([^/]*)$/);
+    if (!match) return []; // オンコードなどの特殊な形は辞書に無ければ空配列を返す（エラー回避）
     
     const root = match[1];
     const type = match[2];
@@ -387,7 +410,6 @@ function generateBarreChords(chordName) {
     const r5 = root5[root];
     if (r6 === undefined || r5 === undefined) return [];
 
-    // パレット追加分(m7b5, dim, aug, add9, 6)のバレーシェイプも追加定義
     const shapes6 = {
         '':     [r6, r6+2, r6+2, r6+1, r6, r6],       
         'm':    [r6, r6+2, r6+2, r6, r6, r6],         
@@ -397,7 +419,7 @@ function generateBarreChords(chordName) {
         'sus4': [r6, r6+2, r6+2, r6+2, r6, r6],
         'sus2': [r6, r6+2, r6+4, r6+2, r6, r6],
         'm7b5': [r6, 'x', r6, r6, r6-1, 'x'],
-        'dim':  [r6, 'x', r6-1, r6, r6-1, 'x'],       // dim7フォームを代用
+        'dim':  [r6, 'x', r6-1, r6, r6-1, 'x'],
         'aug':  [r6, 'x', r6+2, r6+1, r6+1, 'x'],
         'add9': [r6, r6+2, r6+2, r6+1, r6, r6+2],
         '6':    [r6, 'x', r6-1, r6+1, r6, 'x']
